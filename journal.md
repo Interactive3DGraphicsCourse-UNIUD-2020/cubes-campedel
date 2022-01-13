@@ -2,7 +2,7 @@
 L'idea di base del progetto è quella di generare automaticamente un ambiente 3D costutito solamente da cubi dove sono presenti
 
 - un terreno verde
-- degli alberi, con forma di pini, composti da un tronco molto basso e l'approssimazione di una piramide che rappresenta le foglie. Gli alberi sono animati con un leggero movimento delle foglie
+- degli alberi, con forma di pini, composti da un tronco molto basso e l'approssimazione di una piramide che rappresenta le foglie. Gli alberi sono animati con un leggero movimento delle foglie.
 - un flusso d'acqua
 
 oltre ad una luce animata che rappresenta il ciclo giorno-notte. L'input di questo sistema è un'immagine RGB contenente solamente i seguenti colori
