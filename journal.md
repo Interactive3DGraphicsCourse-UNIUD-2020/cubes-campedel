@@ -1,4 +1,6 @@
 # Ambiente Voxel generato da immagine RGB
+![Risultato finale](md_imgs/finalResult.gif)
+
 L'idea di base del progetto è quella di generare automaticamente un ambiente 3D costutito solamente da cubi dove sono presenti
 
 - un terreno verde
@@ -9,6 +11,8 @@ oltre ad una luce animata che rappresenta il ciclo giorno-notte. L'input di ques
 - verde con diversi livelli di luminosità, comunque nel range [0, 255], per l'erba, dove la luminosità è inversamente proporzionale all'altezza
 - rosso con diversi livelli di luminosità, comunque nel range [0, 255], per gli alberi, dove la luminosità è direttamente proporzionale all'altezza dell'albero
 - azzurro (verde + blu) con luminosità 255 per l'acqua
+
+![Immagine RGB](md_imgs/colormap.png)
 
 ## Sviluppo
 Lo sviluppo si è diviso in molte parti diverse per la realizzazione dei diversi elementi della scena.

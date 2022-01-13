@@ -11,6 +11,8 @@ oltre ad una luce animata che rappresenta il ciclo giorno-notte. L'input di ques
 - rosso con diversi livelli di luminosità, comunque nel range [0, 255], per gli alberi, dove la luminosità è direttamente proporzionale all'altezza dell'albero
 - azzurro (verde + blu) con luminosità 255 per l'acqua
 
+![Immagine RGB](md_imgs/colormap.png)
+
 ## Sviluppo
 ### Alberi
 ![Albero](md_imgs/tree.png)
