@@ -1,0 +1,122 @@
+<html>
+
+<head>
+	<title>Starting Code for 1st Project 2017</title>
+	<style>
+		body {
+			font-family: Monospace;
+			background-color: #f0f0f0;
+			margin: 0px;
+			overflow: hidden;
+		}
+
+		canvas {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+	<script src="lib/three.min.js"></script>
+	<script src="lib/stats.min.js"></script>
+	<script src="lib/Coordinates.js"></script>
+	<script src="lib/OrbitControls.js"></script>
+
+	<script src="js/RGBfromImage.js"></script>
+	<script src="js/grass.js"></script>
+</head>
+
+<body>
+
+	<script>
+
+		var scene, camera, renderer, controls, stats;
+
+		function Start() {
+			scene = new THREE.Scene();
+			camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+			renderer = new THREE.WebGLRenderer({ antialias: true });
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			renderer.setClearColor(0xf0f0f0);
+			document.body.appendChild(renderer.domElement);
+
+			let wireframe = false;
+
+
+			// inizializzazione della variabile data, per contenere i dati restituiti dalla funzione getRGBfromImage
+			let data;
+			// richiamo della funzione che converte un'immagine in un array di triple RGB row-major
+			getRGBfromImage("colormap/colormap3.png", data => {
+				// calcolo del lato dell'immagine, dal momento che questa è quadrata
+				let imgSize = Math.sqrt(data.length);
+				// settaggio del livello di scala dell'altezza (l'altezza finale viene determinata come (luminostià del cubo) * scala)
+				let scale = 0.1;
+				// posizionamento della camera centrale all'immmagine, rivolta verso il basso
+				camera.position.set(imgSize / 2, 50, imgSize / 2);
+
+				/**
+				 * inizializzazione delle variabili
+				 * - y per contenere la variabile per la coordianta y corrente
+				 * - treePivot, per contenere il pivot dell'albero corrente
+				 * - grassCoordinates, per contenere la lista di cubi di erba da passare alla funzione generateGrass
+				 */
+				let y, treePivot, grassCoordinates = [];
+				// ciclo che gestisce z
+				for (let z = 0; z < imgSize; z++)
+					// ciclo che gestisce x
+					for (let x = 0; x < imgSize; x++) {
+						// condizione che controlla se il pixel è verde con luminosità di almeno 1 su 255
+						if (data[z * imgSize + x][0] == 0 && data[z * imgSize + x][2] == 0)
+							// aggiunta delle coordinate del cubo d'erba corrispondente al pixel corrente. Per y, meno è luminoso il verde e più è alto il cubo, applicando un fattore di scala verticale per non avere cubi con y = 255.
+							grassCoordinates.push([x, (255 - data[z * imgSize + x][1]) * scale, z]);
+
+						// condizione che controlla se il pixel è rosso con luminosità di almeno 1 su 255
+						if (data[z * imgSize + x][1] == 0 && data[z * imgSize + x][2] == 0) {
+							// per sapere a che altezza posizionare l'albero viene effettuata una mediana delle altezze che ha vicino a sé, ovvero i tre sopra di lui, i tre sotto di lui e i due al suo fianco, tenendo in considerazione anche di una mediana tra questi due in modo che i cubi sopra e sotto non abbiano peso maggiore nel calcolo
+							y = median([data[(z - 1) * imgSize + (x - 1)][1], data[(z - 1) * imgSize + (x)][1], data[(z - 1) * imgSize + (x + 1)][1],
+								data[(z) * imgSize + (x - 1)][1], median([data[(z) * imgSize + (x - 1)][1], data[(z) * imgSize + (x + 1)][1]]), data[(z) * imgSize + (x + 1)][1],
+								data[(z + 1) * imgSize + (x - 1)][1], data[(z + 1) * imgSize + (x)][1], data[(z + 1) * imgSize + (x + 1)][1]]);
+							// in questo momento non è presente un cubo di terra sotto al tronco dell'albero, dal momento che quel pixel non è verde, quindi viene aggiunto
+							grassCoordinates.push([x, (255 - y) * scale, z]);
+						}
+					}
+
+				// richiamo della funzione che genera i cubi di erba
+				generateGrass(scene, grassCoordinates, wireframe);
+			});
+
+
+			stats = new Stats();
+			stats.domElement.style.position = 'absolute';
+			stats.domElement.style.top = '0px';
+			document.body.appendChild(stats.domElement);
+
+			Coordinates.drawAllAxes();
+
+			controls = new THREE.OrbitControls(camera);
+			controls.addEventListener('change', Render);
+		}
+
+		function Update() {
+			requestAnimationFrame(Update);
+			controls.update();
+			stats.update();
+			Render();
+		}
+
+		function Render() {
+			renderer.render(scene, camera);
+		}
+
+		Start();
+		Update();
+
+		function median(arr) {
+			let mid = Math.floor(arr.length / 2),
+				nums = [...arr].sort((a, b) => a - b);
+			return arr.length % 2 !== 0 ? nums[mid] : (nums[mid - 1] + nums[mid]) / 2;
+		};
+
+	</script>
+</body>
+
+</html>

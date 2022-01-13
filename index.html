@@ -1,0 +1,221 @@
+<html>
+
+<head>
+	<title>Starting Code for 1st Project 2017</title>
+	<style>
+		body {
+			font-family: Monospace;
+			background-color: #f0f0f0;
+			margin: 0px;
+			overflow: hidden;
+		}
+
+		canvas {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+	<script src="lib/three.min.js"></script>
+	<script src="lib/stats.min.js"></script>
+	<script src="lib/Coordinates.js"></script>
+	<script src="lib/OrbitControls.js"></script>
+
+	<script src="js/tree.js"></script>
+	<script src="js/RGBfromImage.js"></script>
+	<script src="js/grass.js"></script>
+	<script src="js/water.js"></script>
+</head>
+
+<body>
+
+	<script>
+
+		var scene, camera, renderer, controls, stats, treePivots = [], lightPivot = new THREE.Object3D(), scenePivot = new THREE.Object3D();
+
+		let helpers = false;
+
+		function Start() {
+			scene = new THREE.Scene();
+			camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+			renderer = new THREE.WebGLRenderer({ antialias: true });
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			renderer.setClearColor(0xf0f0f0);
+			renderer.shadowMap.enabled = true;
+			renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+			// renderer.shadowMap.type = THREE.PCFShadowMap;
+			document.body.appendChild(renderer.domElement);
+
+			let wireframe = false;
+
+
+
+			// inizializzazione della variabile data, per contenere i dati resituiti dalla funzione getRGBfromImage
+			let data;
+			// richiamo della funzione che converte un'immagine in un array di triple RGB row-major
+			getRGBfromImage("colormap/colormap3.png", data => {
+				// calcolo del lato dell'immagine, dal momento che questa è quadrata
+				let imgSize = Math.sqrt(data.length);
+				// settaggio del livello di scala dell'altezza (l'altezza finale viene determinata come (luminostià del cubo) * scala)
+				let scale = 0.1;
+				// posizionamento della camera centrale all'immmagine, rivolta verso il basso
+				camera.position.set(0, imgSize / 2, imgSize);
+
+				// impostazione del centro di rotazione manuale della camera
+				controls.target = new THREE.Vector3(0, 0, 0);
+
+				// aggiunta di una Hemisphere Light per avere una leggera illuminazione della scena anche quando non è presente la Directional Light
+				let hemiLight = new THREE.HemisphereLight(0xffffff, 0x888888, 0.25);
+				// posizionamento della Hemisphere Light sopra il centro della scena
+				hemiLight.position.set(0, imgSize * 2, 0);
+				// aggiunta della Hemisphere Light alla scena
+				scene.add(hemiLight);
+				// aggiunta dell'helper se helpers == true
+				if (helpers) {
+					let hemiLightHelper = new THREE.HemisphereLightHelper(hemiLight, 5);
+					scene.add(hemiLightHelper);
+				}
+
+				// creazione della Directional Light bianca
+				let dirLight = new THREE.DirectionalLight(0xffff80, 1);
+				// posizionamento della Directional Light sopra il centro della scena, più bassa rispetto alla Hemisphere Light
+				dirLight.position.set(0, imgSize, 0);
+				// impostazione dei settaggi per la generazione delle ombre da parte della Directional Light
+				dirLight.castShadow = true;
+				// la risoluzione della shadowmap è stata impostata volutamente molto alta in modo da creare delle ombre più precise e per evitare il problema in cui i cubi del terreno allo stesso livello generano ombre sui cubi attorno anche se non dovrebbero
+				dirLight.shadow.mapSize.width = 4096;
+				dirLight.shadow.mapSize.height = 4096;
+				dirLight.shadow.camera.near = 0.5;
+				dirLight.shadow.camera.far = imgSize * 2;
+				dirLight.shadow.camera.left = -imgSize / 2;
+				dirLight.shadow.camera.right = imgSize / 2;
+				dirLight.shadow.camera.top = imgSize / 2;
+				dirLight.shadow.camera.bottom = -imgSize / 2;
+				lightPivot.add(dirLight);
+				// aggiunta dell'helper se helpers == true
+				if (helpers) {
+					let dirLightHelper = new THREE.DirectionalLightHelper(dirLight, 5);
+					scene.add(dirLightHelper);
+					let dirLightShadowHelper = new THREE.CameraHelper(dirLight.shadow.camera);
+					scene.add(dirLightShadowHelper);
+				}
+
+				// creazione di una sfera che rappresenta la Directional Light
+				let geometry = new THREE.SphereGeometry(1, 32, 16);
+				let material = new THREE.MeshBasicMaterial({ color: 0xffff80 });
+				let sphere = new THREE.Mesh(geometry, material);
+				sphere.position.set(0, imgSize, 0);
+				lightPivot.add(sphere);
+
+				scene.add(lightPivot);
+
+
+				/**
+				 * inizializzazione delle variabili
+				 * - y per contenere la variabile per la coordianta y corrente
+				 * - treePivot, per contenere il pivot dell'albero corrente
+				 * - grassCoordinates, per contenere la lista di cubi di erba da passare alla funzione generateGrass
+				 * - waterCoordinates, per contenere la lista di cubi di acqua da passare alla funzione generateWater
+				 */
+				let y, treePivot, grassCoordinates = [], waterCoordinates = [];
+				// ciclo che gestisce z
+				for (let z = 0; z < imgSize; z++)
+					// ciclo che gestisce x
+					for (let x = 0; x < imgSize; x++) {
+						// condizione che controlla se il pixel è verde per l'erba
+						if (data[z * imgSize + x][0] == 0 && data[z * imgSize + x][2] == 0)
+							// aggiunta delle coordinate del cubo d'erba corrispondente al pixel corrente. Per y, meno è luminoso il verde e più è alto il cubo, applicando un fattore di scala verticale per non avere cubi con y = 255.
+							grassCoordinates.push([x, (255 - data[z * imgSize + x][1]) * scale, z]);
+
+						// condizione che controlla se il pixel è rosso per gli alberi
+						if (data[z * imgSize + x][1] == 0 && data[z * imgSize + x][2] == 0) {
+							// creazione di un nuovo pivot per il nuovo albero, in modo da poter posizionare ogni albero indipendentemente nella scena
+							treePivot = new THREE.Object3D();
+							// creazione di un nuovo albero con altezza pari a 1/10 della luminosità del rosso e larghezza pari alla metà dell'altezza
+							generateTree(treePivot, Math.ceil(data[z * imgSize + x][0] / 10), Math.ceil(data[z * imgSize + x][0] / 10 / 2), wireframe);
+							// per sapere a che altezza posizionare l'albero viene effettuata una mediana delle altezze che ha vicino a sé, ovvero i tre sopra di lui, i tre sotto di lui e i due al suo fianco, tenendo in considerazione anche di una mediana tra questi due in modo che i cubi sopra e sotto non abbiano peso maggiore nel calcolo
+							y = median([data[(z - 1) * imgSize + (x - 1)][1], data[(z - 1) * imgSize + (x)][1], data[(z - 1) * imgSize + (x + 1)][1],
+							data[(z) * imgSize + (x - 1)][1], median([data[(z) * imgSize + (x - 1)][1], data[(z) * imgSize + (x + 1)][1]]), data[(z) * imgSize + (x + 1)][1],
+							data[(z + 1) * imgSize + (x - 1)][1], data[(z + 1) * imgSize + (x)][1], data[(z + 1) * imgSize + (x + 1)][1]]);
+							// posizionamento del pivot dell'albero alle giuste coordinate
+							treePivot.position.set(x, Math.ceil((255 - y) * scale) + 1, z);
+							// aggiunta del pivot al pivot della scena, creato in modo da poter centrare tutta la scena in 0, 0, 0
+							scenePivot.add(treePivot);
+							// aggiunta del pivot dell'albero alla lista dei pivot degli alberi in modo da poter animare ogni albero separatamente
+							treePivots.push(treePivot);
+							// in questo momento non è presente un cubo di terra sotto al tronco dell'albero, dal momento che quel pixel non è verde, quindi viene aggiunto
+							grassCoordinates.push([x, (255 - y) * scale, z]);
+						}
+
+						// condizione che controlla se il pixel è azzurro con luminosità di almeno 1 su 255
+						if (data[z * imgSize + x][0] == 0 && data[z * imgSize + x][1] > 0 && data[z * imgSize + x][2] > 0) {
+							// aggiunta delle coordinate del cubo di acqua corrispondente al pixel corrente.
+							waterCoordinates.push([x, (255 - (data[z * imgSize + x][1] + data[z * imgSize + x][1]) / 2) * scale, z]);
+						}
+					}
+
+				// richiamo delle funzioni che generano i cubi di erba e di acqua
+				generateGrass(scenePivot, grassCoordinates, wireframe);
+				generateWater(scenePivot, waterCoordinates, wireframe);
+
+				// aggiunta del pivot della scena alla scena
+				scene.add(scenePivot);
+				// modifica della posizione del pivot della scena
+				scenePivot.position.set(-imgSize / 2, 0, -imgSize / 2);
+			});
+
+
+			stats = new Stats();
+			stats.domElement.style.position = 'absolute';
+			stats.domElement.style.top = '0px';
+			document.body.appendChild(stats.domElement);
+
+			Coordinates.drawAllAxes();
+
+			controls = new THREE.OrbitControls(camera);
+			controls.addEventListener('change', Render);
+
+		}
+
+		// creazione delle variabili per l'animazione degli alberi
+		let initTime = Date.now();
+		let time, interval;
+		let i = 0;
+		function Update() {
+			time = Date.now();
+			interval = time - initTime;
+			if (treePivots.length > 0)
+				for (i = 0; i < treePivots.length; i++) {
+					// animazione degli alberi
+					treePivots[i].position.x += Math.sin(interval / 500) / 100;
+					treePivots[i].position.y += Math.sin(interval / 500) / 10000;
+					treePivots[i].position.z += Math.sin(interval / 500) / 100;
+				}
+			
+			// animazione della luce
+			lightPivot.rotation.z = interval / 1000;
+
+			requestAnimationFrame(Update);
+			controls.update();
+			stats.update();
+			Render();
+		}
+
+		function Render() {
+			renderer.render(scene, camera);
+		}
+
+		Start();
+		Update();
+
+		// funzione che calcola la mediana
+		function median(arr) {
+			let mid = Math.floor(arr.length / 2),
+				nums = [...arr].sort((a, b) => a - b);
+			return arr.length % 2 !== 0 ? nums[mid] : (nums[mid - 1] + nums[mid]) / 2;
+		};
+
+	</script>
+</body>
+
+</html>
